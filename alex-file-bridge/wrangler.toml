@@ -1,0 +1,14 @@
+name = "alex-file-bridge"
+main = "worker.js"
+compatibility_date = "2026-10-08"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "alex-file-bridge"
+
+# Set this as an encrypted secret:
+# npx wrangler secret put ADMIN_TOKEN
