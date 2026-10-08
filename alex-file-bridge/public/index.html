@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self'; media-src 'self' blob:; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
+<title>Alex File Bridge</title>
+<style>
+body{margin:0;background:#0b1020;color:#eef2ff;font:16px system-ui,sans-serif}
+main{max-width:1050px;margin:auto;padding:28px}
+.box{background:#10172b;border:1px solid #293657;border-radius:18px;padding:22px;margin-bottom:18px}
+h1{margin:0 0 6px}.muted{color:#aab7d4}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+input,button{font:inherit}input{box-sizing:border-box;width:100%;padding:11px;border-radius:10px;border:1px solid #33405f;background:#09101f;color:#fff}
+button,a{display:inline-block;border:0;border-radius:10px;padding:10px 14px;font-weight:700;text-decoration:none;cursor:pointer}
+button{background:#4f7cff;color:#fff}a{background:#30405f;color:#fff}
+.file{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid #23304b;flex-wrap:wrap}
+code{word-break:break-all}
+.small{font-size:13px}
+</style>
+</head>
+<body><main>
+<section class="box">
+<h1>Alex File Bridge</h1>
+<p class="muted">Privater Upload, öffentliche direkte Downloads. Dateien werden in Cloudflare R2 gespeichert.</p>
+</section>
+<section class="box">
+<h2>Dateien</h2><div id="files" class="muted">Lade …</div>
+</section>
+<section class="box">
+<h2>Admin</h2>
+<label class="small">Admin-Token</label>
+<input id="token" type="password" autocomplete="off" placeholder="wird nicht gespeichert">
+<label class="small" style="display:block;margin-top:10px">Datei</label>
+<input id="file" type="file">
+<div class="row" style="margin-top:10px"><button id="upload">Hochladen</button><button id="refresh">Aktualisieren</button></div>
+<div id="status" class="muted" style="margin-top:10px"></div>
+</section>
+</main>
+<script>
+const filesEl=document.getElementById("files"), statusEl=document.getElementById("status");
+const tokenEl=document.getElementById("token"), fileEl=document.getElementById("file");
+function esc(v){return String(v).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
+function fmt(n){const u=["B","KB","MB","GB","TB"];let i=0,x=Number(n||0);while(x>=1024&&i<u.length-1){x/=1024;i++}return (x>=10||i===0?x.toFixed(0):x.toFixed(1))+" "+u[i]}
+async function load(){
+  try{
+    const r=await fetch("/api/files");
+    const d=await r.json();
+    if(!d.files?.length){filesEl.textContent="Noch keine Dateien.";return}
+    filesEl.innerHTML=d.files.map(f=>`<div class="file"><span><strong>${esc(f.key)}</strong><br><span class="small muted">${fmt(f.size)}</span></span><span class="row"><a href="/f/${encodeURIComponent(f.key)}">Download</a><a href="/v/${encodeURIComponent(f.key)}" target="_blank" rel="noopener noreferrer">Öffnen</a></span></div>`).join("")
+  }catch(e){filesEl.textContent="Dateiliste nicht erreichbar."}
+}
+document.getElementById("refresh").onclick=load;
+document.getElementById("upload").onclick=async()=>{
+  const token=tokenEl.value, file=fileEl.files[0];
+  if(!token)return statusEl.textContent="Admin-Token fehlt.";
+  if(!file)return statusEl.textContent="Bitte Datei wählen.";
+  statusEl.textContent="Upload läuft …";
+  const name=file.name.replace(/[^\w.\-() ]+/g,"_");
+  const r=await fetch("/api/upload/"+encodeURIComponent(name),{method:"PUT",headers:{Authorization:"Bearer "+token,"Content-Type":file.type||"application/octet-stream"},body:file});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){statusEl.textContent="Fehler: "+(d.error||r.status);return}
+  statusEl.textContent="Fertig. Direktlink: "+d.directUrl;
+  fileEl.value="";
+  load();
+};
+load();
+</script>
+</body></html>
