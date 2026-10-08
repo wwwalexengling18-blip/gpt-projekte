@@ -9,6 +9,3 @@ binding = "ASSETS"
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "alex-file-bridge"
-
-# Set this as an encrypted secret:
-# npx wrangler secret put ADMIN_TOKEN
