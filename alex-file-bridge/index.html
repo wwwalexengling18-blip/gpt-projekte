@@ -4,44 +4,59 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.github.com; img-src 'self' data:; media-src 'self' https:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
 <title>Alex File Bridge</title>
 <style>
 body{margin:0;background:#0b1020;color:#eef2ff;font:16px system-ui,sans-serif}
-main{max-width:950px;margin:auto;padding:30px}.box{background:#111a31;border:1px solid #293556;border-radius:18px;padding:24px;margin-bottom:18px}
-h1{margin:0 0 8px}.muted{color:#a9b5d4}.file{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid #25304d;flex-wrap:wrap}
+main{max-width:950px;margin:auto;padding:30px}
+.box{background:#111a31;border:1px solid #293556;border-radius:18px;padding:24px;margin-bottom:18px}
+h1{margin:0 0 8px}.muted{color:#a9b5d4;line-height:1.5}
+.file{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid #25304d;flex-wrap:wrap}
 a{color:#fff;text-decoration:none;background:#4f7cff;padding:10px 14px;border-radius:10px;font-weight:700}
-code{word-break:break-all}
+code{word-break:break-all}.ok{color:#72e2a6}.err{color:#ff8297}
 </style>
 </head>
 <body>
 <main>
 <section class="box">
 <h1>Alex File Bridge</h1>
-<p class="muted">Öffentliche Dateiübersicht mit direkten GitHub-Raw-Links. Die Website selbst speichert keine Uploads.</p>
+<p class="muted">Kostenloser öffentlicher Download-Hub. Dateien werden als GitHub-Release-Assets ausgeliefert.</p>
 </section>
 <section class="box">
-<h2>Dateien</h2>
-<div id="files"><p class="muted">Lade Liste …</p></div>
+<h2>Verfügbare Dateien</h2>
+<div id="files"><p class="muted">Lade Release-Dateien …</p></div>
 </section>
 <section class="box">
-<h2>Direkte URL</h2>
-<p class="muted">Für eine Datei im Ordner <code>files/</code> lautet der direkte Abruf:</p>
-<code id="example">https://raw.githubusercontent.com/wwwalexengling18-blip/gpt-projekte/main/alex-file-bridge/files/DATEI</code>
+<h2>Direktdownload</h2>
+<p class="muted">Jedes veröffentlichte Release-Asset erhält von GitHub eine offizielle Download-URL.</p>
 </section>
 </main>
 <script>
 const repo="wwwalexengling18-blip/gpt-projekte";
-const path="alex-file-bridge/files";
 async function load(){
   const el=document.getElementById("files");
   try{
-    const r=await fetch(`https://api.github.com/repos/${repo}/contents/${path}`,{headers:{accept:"application/vnd.github+json"}});
+    const r=await fetch(`https://api.github.com/repos/${repo}/releases?per_page=20`,{headers:{accept:"application/vnd.github+json"}});
     if(!r.ok) throw new Error("HTTP "+r.status);
-    const items=await r.json();
-    if(!Array.isArray(items)||!items.length){el.innerHTML="<p class='muted'>Noch keine Dateien im Download-Ordner.</p>";return}
-    el.innerHTML=items.map(f=>`<div class="file"><span><strong>${escapeHtml(f.name)}</strong></span><a href="${f.download_url}" target="_blank" rel="noopener noreferrer">Direkt öffnen/downloaden</a></div>`).join("");
-  }catch(e){el.innerHTML="<p class='muted'>Dateiliste derzeit nicht erreichbar.</p>"}
+    const releases=await r.json();
+    const assets=[];
+    for(const rel of releases){
+      for(const a of (rel.assets||[])){
+        assets.push({name:a.name,size:a.size,url:a.browser_download_url,tag:rel.tag_name});
+      }
+    }
+    if(!assets.length){el.innerHTML="<p class='muted'>Noch keine Release-Dateien vorhanden.</p>";return;}
+    el.innerHTML=assets.map(a=>`
+      <div class="file">
+        <div><strong>${escapeHtml(a.name)}</strong><br><span class="muted">${escapeHtml(a.tag)} · ${formatBytes(a.size)}</span></div>
+        <a href="${a.url}" target="_blank" rel="noopener noreferrer">Direkt herunterladen</a>
+      </div>`).join("");
+  }catch(e){el.innerHTML="<p class='err'>Release-Liste derzeit nicht erreichbar.</p>";}
+}
+function formatBytes(n){
+ const u=["B","KB","MB","GB"];let i=0,v=Number(n);
+ while(v>=1024&&i<u.length-1){v/=1024;i++}
+ return (i===0?Math.round(v):v.toFixed(v>=10?0:1))+" "+u[i];
 }
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
 load();
